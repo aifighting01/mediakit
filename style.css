@@ -158,3 +158,22 @@ html[lang="en"] body{word-break:normal}
 .lang button[aria-pressed="true"]{background:var(--tx);color:var(--bg)}
 .lang button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 @media (max-width:440px){.logo span{display:none}.ig-btn{padding:7px 11px}.lang button{padding:5px 8px;min-width:32px}}
+/* channels */
+.social{padding:44px 0 8px;border-top:1px solid var(--line)}
+.social .kicker{margin-bottom:14px}
+.socs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.soc{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:var(--r);background:var(--card);border:1px solid var(--line);text-decoration:none;color:var(--tx);transition:border-color .2s,transform .2s,background .2s}
+.soc:hover,.soc:focus-visible{border-color:var(--line2);background:#1b1e25;transform:translateY(-1px)}
+.soc:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.soc-ic{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.06)}
+.soc-ic svg{width:22px;height:22px;display:block}
+.soc-instagram .soc-ic{color:#ff5fa2}.soc-youtube .soc-ic{color:#ff3b3b}.soc-threads .soc-ic{color:#f2f2f4}
+.soc-tx{display:flex;flex-direction:column;min-width:0;line-height:1.3}
+.soc-tx b{font-size:15px;font-weight:700}
+.soc-tx small{font-size:13px;color:var(--tx2)}
+.soc-go{margin-left:auto;color:var(--tx3);font-size:14px}
+.social+.summary{border-top:0;padding-top:44px}
+.contact .cta-more{display:flex;gap:18px;justify-content:center;margin:18px 0 0;font-size:14px}
+.cta-more a{color:var(--tx2);text-decoration:none;border-bottom:1px solid var(--line2)}
+.cta-more a:hover{color:var(--acc)}
+@media (max-width:640px){.socs{grid-template-columns:1fr;gap:8px}.soc{padding:13px 14px}}
