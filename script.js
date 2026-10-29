@@ -3,7 +3,7 @@
   document.documentElement.classList.remove("no-js");
 
   /* ---------- 언어 (KO / EN) ----------
-     우선순위: ?lang=ko|en → 저장된 선택(localStorage) → 브라우저 언어(ko 가 아니면 EN) */
+     우선순위: ?lang=ko|en → 그 외에는 항상 EN (저장값·브라우저 언어 무시) */
   var LKEY = "mk_lang", ROOT = document.documentElement;
   var META = {
     ko: { title: "ai_fighting — AI 영상 크리에이터 미디어 킷", desc: "AI 액션 영상 크리에이터 ai_fighting 미디어 킷 · 브랜드 협업 포트폴리오" },
@@ -12,9 +12,7 @@
   function urlLang() { var m = /[?&]lang=(ko|en)(?:&|$)/i.exec(location.search); return m ? m[1].toLowerCase() : null; }
   function pickLang() {
     var u = urlLang(); if (u) return u;
-    try { var s = localStorage.getItem(LKEY); if (s === "ko" || s === "en") return s; } catch (e) {}
-    var n = (navigator.language || "ko").toLowerCase();
-    return n.indexOf("ko") === 0 ? "ko" : "en";
+    return "en";
   }
   function isEn() { return ROOT.getAttribute("lang") === "en"; }
   function L(ko, en) { return isEn() ? en : ko; }
@@ -25,7 +23,7 @@
     });
   }
   function setLang(l, save) {
-    l = l === "en" ? "en" : "ko";
+    l = l === "ko" ? "ko" : "en";
     ROOT.setAttribute("lang", l);
     document.title = META[l].title;
     var md = document.querySelector('meta[name="description"]'); if (md) md.setAttribute("content", META[l].desc);
@@ -34,10 +32,10 @@
       b.setAttribute("aria-pressed", b.getAttribute("data-lang") === l ? "true" : "false");
     });
     if (save) {
-      try { localStorage.setItem(LKEY, l); } catch (e) {}
-      if (urlLang() && history.replaceState) {   // 공유 링크(?lang=)를 보고 있으면 주소도 함께 바꿈
-        history.replaceState(null, "", location.pathname + location.search.replace(/([?&]lang=)(ko|en)/i, "$1" + l) + location.hash);
-      }
+      if (history.replaceState) try {   // 주소의 ?lang= 갱신
+        var q = urlLang() ? location.search.replace(/([?&]lang=)(ko|en)/i, "$1" + l) : (location.search ? location.search + "&lang=" + l : "?lang=" + l);
+        history.replaceState(null, "", location.pathname + q + location.hash);
+      } catch (e) {}
     }
     if (typeof refreshModalLang === "function") refreshModalLang();
   }
