@@ -2,6 +2,50 @@
   "use strict";
   document.documentElement.classList.remove("no-js");
 
+  /* ---------- 언어 (KO / EN) ----------
+     우선순위: ?lang=ko|en → 저장된 선택(localStorage) → 브라우저 언어(ko 가 아니면 EN) */
+  var LKEY = "mk_lang", ROOT = document.documentElement;
+  var META = {
+    ko: { title: "ai_fighting — AI 영상 크리에이터 미디어 킷", desc: "AI 액션 영상 크리에이터 ai_fighting 미디어 킷 · 브랜드 협업 포트폴리오" },
+    en: { title: "ai_fighting — AI Video Creator Media Kit", desc: "Media kit of ai_fighting, an AI action video creator · brand collaboration portfolio" }
+  };
+  function urlLang() { var m = /[?&]lang=(ko|en)(?:&|$)/i.exec(location.search); return m ? m[1].toLowerCase() : null; }
+  function pickLang() {
+    var u = urlLang(); if (u) return u;
+    try { var s = localStorage.getItem(LKEY); if (s === "ko" || s === "en") return s; } catch (e) {}
+    var n = (navigator.language || "ko").toLowerCase();
+    return n.indexOf("ko") === 0 ? "ko" : "en";
+  }
+  function isEn() { return ROOT.getAttribute("lang") === "en"; }
+  function L(ko, en) { return isEn() ? en : ko; }
+  function applyAttrs(root) {
+    var en = isEn();
+    Array.prototype.forEach.call((root || document).querySelectorAll("[data-a-ko]"), function (el) {
+      el.setAttribute("aria-label", el.getAttribute(en ? "data-a-en" : "data-a-ko"));
+    });
+  }
+  function setLang(l, save) {
+    l = l === "en" ? "en" : "ko";
+    ROOT.setAttribute("lang", l);
+    document.title = META[l].title;
+    var md = document.querySelector('meta[name="description"]'); if (md) md.setAttribute("content", META[l].desc);
+    applyAttrs(document);
+    Array.prototype.forEach.call(document.querySelectorAll(".lang button[data-lang]"), function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-lang") === l ? "true" : "false");
+    });
+    if (save) {
+      try { localStorage.setItem(LKEY, l); } catch (e) {}
+      if (urlLang() && history.replaceState) {   // 공유 링크(?lang=)를 보고 있으면 주소도 함께 바꿈
+        history.replaceState(null, "", location.pathname + location.search.replace(/([?&]lang=)(ko|en)/i, "$1" + l) + location.hash);
+      }
+    }
+    if (typeof refreshModalLang === "function") refreshModalLang();
+  }
+  setLang(pickLang(), false);
+  Array.prototype.forEach.call(document.querySelectorAll(".lang button[data-lang]"), function (b) {
+    b.addEventListener("click", function () { setLang(b.getAttribute("data-lang"), true); });
+  });
+
   /* 영상 원본: GitHub Pages 의 mp4 (카드의 data-src). 재시도 시 ?r=시도_시각 */
   function vidSrc(v, attempt) {
     if (typeof window.__mkSrc === "function") return window.__mkSrc(v.id, attempt); // 테스트용 훅
@@ -48,7 +92,7 @@
       }
       shown = to;
       eb.hidden = shown >= items.length;
-      eb.querySelector("span").textContent = String(items.length - shown);
+      Array.prototype.forEach.call(eb.querySelectorAll(".left"), function (x) { x.textContent = String(items.length - shown); });
     }
     page();
     eb.addEventListener("click", page);
@@ -65,6 +109,19 @@
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
   }
+  var vmFilms = null;
+  /* 언어 전환 시 열린 플레이어의 제목·라벨·안내도 바꿈 (재생은 그대로) */
+  function refreshModalLang() {
+    if (!VM || VM.hidden || !vmList) return;
+    var v = vmList[vmIdx];
+    VM.querySelector(".vm-title").textContent = L(v.title, v.titleEn);
+    if (vmFilms) VM.querySelector(".vm-tag").textContent = L(vmFilms.getAttribute("data-label") || "", vmFilms.getAttribute("data-label-en") || "");
+    var ld = VM.querySelector(".vm-loading"); if (ld && !/%/.test(ld.textContent)) ld.textContent = /내려|Download/.test(ld.textContent) ? L("영상 내려받는 중…", "Downloading video…") : L("영상 불러오는 중…", "Loading video…");
+    var tp = VM.querySelector(".vm-tap"); if (tp) tp.setAttribute("aria-label", L("영상 재생", "Play video"));
+    var fl = VM.querySelector(".vm-fail");
+    if (fl) { var pp = fl.querySelector("p"); pp.textContent = pp.textContent.replace(/^(영상을 불러오지 못했어요|Couldn’t load this video)/, L("영상을 불러오지 못했어요", "Couldn’t load this video")); fl.querySelector(".vm-retry").textContent = L("다시 시도", "Retry"); }
+    var ib = VM.querySelector(".vm-iab"); if (ib && !ib.hidden) showIab(true);
+  }
   var VM = null, vmList = null, vmIdx = 0, vmLastFocus = null, vmToken = 0;
   function buildModal() {
     VM = document.createElement("div");
@@ -76,17 +133,18 @@
     VM.innerHTML =
       '<div class="vm-box">' +
         '<div class="vm-head"><span class="vm-tag"></span><strong id="vm-title" class="vm-title"></strong>' +
-        '<button type="button" class="vm-close" data-vm="close" aria-label="닫기 (Esc)">✕</button></div>' +
+        '<button type="button" class="vm-close" data-vm="close" aria-label="닫기 (Esc)" data-a-ko="닫기 (Esc)" data-a-en="Close (Esc)">✕</button></div>' +
         '<div class="vm-stage"><div class="vm-frame"></div></div>' +
         '<div class="vm-foot">' +
-          '<div class="vm-nav"><button type="button" class="vm-btn" data-vm="prev" aria-label="이전 영상">‹ 이전</button>' +
+          '<div class="vm-nav"><button type="button" class="vm-btn" data-vm="prev" aria-label="이전 영상" data-a-ko="이전 영상" data-a-en="Previous video">‹ <span data-l="ko">이전</span><span data-l="en">Prev</span></button>' +
           '<span class="vm-count" aria-live="polite"></span>' +
-          '<button type="button" class="vm-btn" data-vm="next" aria-label="다음 영상">다음 ›</button></div>' +
-          '<a class="vm-ig" target="_blank" rel="noopener">Instagram에서 보기 ↗</a>' +
+          '<button type="button" class="vm-btn" data-vm="next" aria-label="다음 영상" data-a-ko="다음 영상" data-a-en="Next video"><span data-l="ko">다음</span><span data-l="en">Next</span> ›</button></div>' +
+          '<a class="vm-ig" target="_blank" rel="noopener"><span data-l="ko">Instagram에서 보기 ↗</span><span data-l="en">View on Instagram ↗</span></a>' +
           '<div class="vm-iab" hidden></div>' +
         "</div>" +
       "</div>";
     document.body.appendChild(VM);
+    applyAttrs(VM);
     // 영상 저장 억제: 플레이어·모달 영역의 우클릭 메뉴(길게 누르기 메뉴)와 끌어서 저장 막기
     function noSave(e) { e.preventDefault(); return false; }
     VM.addEventListener("contextmenu", noSave);
@@ -167,9 +225,9 @@
   function ensurePlayer(frame) {
     var vid = frame.querySelector("video");
     if (vid) return vid;
-    frame.innerHTML = '<div class="vm-loading">영상 불러오는 중…</div>' +
+    frame.innerHTML = '<div class="vm-loading">' + L("영상 불러오는 중…", "Loading video…") + '</div>' +
       '<video controls playsinline webkit-playsinline autoplay preload="metadata" controlslist="nodownload noremoteplayback" disablepictureinpicture draggable="false"></video>' +
-      '<button type="button" class="vm-tap" hidden aria-label="영상 재생"><span class="play" aria-hidden="true"></span></button>';
+      '<button type="button" class="vm-tap" hidden aria-label="' + L("영상 재생", "Play video") + '"><span class="play" aria-hidden="true"></span></button>';
     vid = frame.querySelector("video");
     // 다운로드·PIP·원격 재생 메뉴 숨김 (속성 + 프로퍼티 둘 다)
     vid.setAttribute("controlslist", "nodownload noremoteplayback");
@@ -205,7 +263,7 @@
     vid.setAttribute("poster", c.v.poster || "");
     vid.setAttribute("title", c.v.title);
     if (PLAN[c.step] === "native") {
-      setLoading("영상 불러오는 중…");
+      setLoading(L("영상 불러오는 중…", "Loading video…"));
       vid.src = vidSrc(c.v, c.step);
       doPlay(vid);      // 탭 처리 중에 바로 play() — 인앱 브라우저 자동재생 제한 통과
       armStall();
@@ -215,7 +273,7 @@
     clearStall();
     releaseSrc(vid);
     dropBlob();
-    setLoading("영상 내려받는 중…");
+    setLoading(L("영상 내려받는 중…", "Downloading video…"));
     if (!window.fetch || !window.URL || !URL.createObjectURL) { fail(c.code); return; }
     var ctl = window.AbortController ? new AbortController() : null;
     vmAbort = ctl;
@@ -232,7 +290,7 @@
           if (cur !== c) { try { rd.cancel(); } catch (e) {} throw new Error("cancel"); }
           if (r.done) return new Blob(parts, { type: "video/mp4" });
           parts.push(r.value); got += r.value.length; poke();
-          if (total) setLoading("영상 내려받는 중… " + Math.min(99, Math.floor(got * 100 / total)) + "%");
+          if (total) setLoading(L("영상 내려받는 중… ", "Downloading video… ") + Math.min(99, Math.floor(got * 100 / total)) + "%");
           return pump();
         });
       })();
@@ -242,7 +300,7 @@
       vmAbort = null;
       if (blob.type !== "video/mp4") blob = blob.slice(0, blob.size, "video/mp4");
       vmBlobUrl = URL.createObjectURL(blob);
-      setLoading("영상 불러오는 중…");
+      setLoading(L("영상 불러오는 중…", "Loading video…"));
       vid.src = vmBlobUrl;
       doPlay(vid);      // 같은 요소라서 처음 탭의 허락이 남아 있음. 막히면 재생 버튼 표시
       armStall();
@@ -268,8 +326,8 @@
     dropBlob();
     releaseVideos(frame);
     // 다른 플레이어로 바꾸지 않고 사이트 플레이어 자리에서 안내 (크기 유지)
-    frame.innerHTML = '<div class="vm-fail"><p>영상을 불러오지 못했어요' + (code && code !== "stall" ? " (" + code + ")" : "") + '.</p>' +
-      '<button type="button" class="vm-retry">다시 시도</button></div>';
+    frame.innerHTML = '<div class="vm-fail"><p>' + L("영상을 불러오지 못했어요", "Couldn’t load this video") + (code && code !== "stall" ? " (" + code + ")" : "") + '.</p>' +
+      '<button type="button" class="vm-retry">' + L("다시 시도", "Retry") + '</button></div>';
     frame.querySelector(".vm-retry").addEventListener("click", function () { startVideo(c.v, true); });
     if (META_IAB) showIab(true);
   }
@@ -279,18 +337,20 @@
     var box = VM.querySelector(".vm-iab");
     if (!on) { box.hidden = true; return; }
     var u = pageUrl(), rest = u.replace(/^https?:\/\//, "");
-    var h = "<p>Threads·Instagram 앱 안의 브라우저에서는 영상이 재생되지 않을 수 있어요. " +
-      (IS_IOS ? "Safari" : "Chrome") + " 같은 기본 브라우저로 열어 주세요.</p><div class=\"vm-iab-row\">";
+    var br = IS_IOS ? "Safari" : "Chrome";
+    var h = "<p>" + L("Threads·Instagram 앱 안의 브라우저에서는 영상이 재생되지 않을 수 있어요. " + br + " 같은 기본 브라우저로 열어 주세요.",
+      "Videos may not play in the Threads/Instagram in-app browser. Please open this page in your default browser, such as " + br + ".") + "</p><div class=\"vm-iab-row\">";
     if (IS_ANDROID) h += '<a class="vm-btn vm-open-ext" href="intent://' + esc(rest) + "#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=" +
-      encodeURIComponent(u) + ';end">Chrome 으로 열기 ↗</a>';
-    h += '<button type="button" class="vm-btn vm-copy">링크 복사</button></div>';
-    if (!IS_ANDROID) h += '<p class="vm-iab-tip">링크를 복사해 Safari 에 붙여 넣거나, 오른쪽 위 ··· 메뉴에서 ‘외부 브라우저에서 열기’ 를 눌러 주세요.</p>';
+      encodeURIComponent(u) + ';end">' + L("Chrome 으로 열기 ↗", "Open in Chrome ↗") + '</a>';
+    h += '<button type="button" class="vm-btn vm-copy">' + L("링크 복사", "Copy link") + '</button></div>';
+    if (!IS_ANDROID) h += '<p class="vm-iab-tip">' + L("링크를 복사해 Safari 에 붙여 넣거나, 오른쪽 위 ··· 메뉴에서 ‘외부 브라우저에서 열기’ 를 눌러 주세요.",
+      "Copy the link and paste it into Safari, or tap the ··· menu at the top right and choose ‘Open in external browser’.") + '</p>';
     h += '<p class="vm-iab-url">' + esc(u) + "</p>";
     box.innerHTML = h;
     box.hidden = false;
     box.querySelector(".vm-copy").addEventListener("click", function () {
       var b = this;
-      function done(okc) { b.textContent = okc ? "복사했어요 ✓" : "아래 주소를 길게 눌러 복사"; }
+      function done(okc) { b.textContent = okc ? L("복사했어요 ✓", "Copied ✓") : L("아래 주소를 길게 눌러 복사", "Long-press the address below to copy"); }
       function legacy() {
         var t = document.createElement("textarea");
         t.value = u; t.setAttribute("readonly", ""); t.style.cssText = "position:fixed;top:0;left:0;opacity:0";
@@ -318,7 +378,7 @@
     var n = vmList.length;
     vmIdx = (i + n) % n;
     var v = vmList[vmIdx];
-    VM.querySelector(".vm-title").textContent = v.title;
+    VM.querySelector(".vm-title").textContent = L(v.title, v.titleEn);
     startVideo(v, false);
     VM.querySelector(".vm-count").textContent = (vmIdx + 1) + " / " + n;
     var ig = VM.querySelector(".vm-ig");
@@ -331,11 +391,12 @@
     if (!VM) buildModal();
     vmList = cards.map(function (c) {
       var im = c.querySelector("img.pthumb");
-      return { id: c.getAttribute("data-id"), src: c.getAttribute("data-src"), title: c.getAttribute("data-title") || "ai_fighting",
+      return { id: c.getAttribute("data-id"), src: c.getAttribute("data-src"), title: c.getAttribute("data-title") || "ai_fighting", titleEn: c.getAttribute("data-title-en") || c.getAttribute("data-title") || "ai_fighting",
         w: +c.getAttribute("data-w") || 16, h: +c.getAttribute("data-h") || 9, poster: im ? im.getAttribute("src") : "", ig: c.getAttribute("data-ig") || "" };
     });
     vmLastFocus = card;
-    VM.querySelector(".vm-tag").textContent = films.getAttribute("data-label") || "";
+    vmFilms = films;
+    VM.querySelector(".vm-tag").textContent = L(films.getAttribute("data-label") || "", films.getAttribute("data-label-en") || films.getAttribute("data-label") || "");
     VM.style.setProperty("--acc", films.getAttribute("data-color") || "");
     VM.classList.toggle("multi", cards.length > 1);
     VM.hidden = false;
